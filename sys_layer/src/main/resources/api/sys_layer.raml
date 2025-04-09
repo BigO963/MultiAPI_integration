@@ -1,0 +1,194 @@
+#%RAML 1.0
+title: sys_layer
+version: v1
+description: API designed to interact with an external event API and a database that contains the user id and their favourite city(-ies)
+baseUri: localhost:8082/SYS
+
+types:
+  User:
+    type: object
+    properties:
+      user_id: 
+        type: string
+      favourite_city:
+        type: string[]
+  Event:
+    type: object
+    properties:
+      Type: string
+      Name: string
+      Availability: string
+      Price: number
+      Performer: string
+      ValidFrom: string
+      StartDate: string
+      EndDate: string
+      Location:
+        type: object
+        properties:
+          Name: string
+          Address: string
+          City: string
+          Country: string
+          Url: string
+
+
+securitySchemes:
+  basicAuth:
+    description: Use Basic Authentication with username and password.
+    type: Basic Authentication
+      
+/location/create/:
+  displayName: Add favourite city
+  description: Endpoint designed for a user to add their favourite city(-ies).
+  securedBy:
+      - basicAuth
+  post:
+    body:
+      application/json:
+        properties:
+          favourite_city: 
+            type: string[]
+    responses:
+      201:
+        body:
+          application/json:
+            properties:
+               message: string
+            example:
+             {
+               "message": "City inserted sucessfully!",
+               "favourite_city": "[Kaunas]"
+             }
+      400:
+        body:
+           application/json:
+             properties:
+               message: string
+             example:
+               {
+                 "message": "Could not insert data"
+               }
+         
+/prefrenceList/{userId}:
+  displayName: Get prefrences
+  description: Endpoint designed to return all user id's and the list of their favourite cities
+  uriParameters:
+    userId:
+      type: string
+      required: true
+  get:
+    headers:
+      Content-Type: 
+        description: The media type of the resource.
+        required: true
+        example: application/json
+    responses:
+      200:
+        body:
+          application/json:
+            type: User
+      400:
+        body:
+           application/json:
+             properties:
+               message: string
+             example:
+               {
+                 "message": "No data found"
+               }
+          
+          
+/events:
+  displayName: Get events
+  description: Endpoint designed to get events that are happening this day in the city provided by the query parameter .
+  
+  get:
+    displayName: Get event data
+    description: Get the relevent event data depending on the city or cities provided in the query parameter
+    securedBy:
+      - basicAuth
+    queryParameters:
+      cities:
+        type: string
+        required: true     
+    responses:
+      200:
+        body:
+          application/json:      
+            type: Event[]
+              
+      400:
+        body:
+          application/json:
+            properties:
+              message: string
+            example:
+              {
+                "message": "No data found"
+              }
+               
+  post:
+    displayName: Get ID
+    description: Send the name of your favourite city or cities and get back an ID that you use as a URI parameter in the /{user_id} endpoint
+    securedBy:
+      - basicAuth
+    body:
+      application/json:
+        properties:
+          favourite_cities: string
+        example:
+           {
+             "favourite_cities": "kaunas,vilnius" 
+           }       
+    responses:
+      200:
+        body:
+          application/json:
+            properties:
+              message: string
+            example:
+              {
+                "message": "user_id"
+              }
+      400:
+        body:
+          application/json:
+            properties:
+              message: string
+            example:
+              {
+                "message": "No data found"
+              }  
+              
+       
+                                   
+  /{user_id}:
+    displayName: Use ID
+    description: Send an ID as a URI parameter you got from the /events endpoint with the post method and ge back the relevant event data on the cities relate to the ID
+    uriParameters:
+      user_id:
+        type: string
+        required: false
+      
+    get:
+      securedBy:
+      - basicAuth
+      responses:
+        200:
+          body:
+            application/json:      
+              type: Event[]
+        400:
+          body:
+            application/json:
+              properties:
+                message: string
+              example:
+                {
+                  "message": "No data found"
+                }
+    
+  
+          
+              

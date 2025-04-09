@@ -1,0 +1,125 @@
+#%RAML 1.0
+title: proc_layer
+version: v1
+baseUri: localhost:8081/PROC
+
+types:
+  weatherThisHour:
+    description: General data about weather this current hour
+    type: object
+    properties:
+      Location:
+        type: object
+        properties:
+          Name: string
+          Region: string
+      WeatherThisMoment:
+        type: array
+        items:
+          type: object
+          properties:
+            time: string
+            temp_c: string
+            condition: string
+            wind_kph: string
+            snow_cm: string
+            humidity: string
+            feelslike_c: string
+            chanceOfRain: string
+            chanceOfSnow: string
+  
+      
+securitySchemes:
+  basicAuth:
+    description: Use Basic Authentication with username and password.
+    type: Basic Authentication      
+                  
+/cityWeather:
+  displayName: Weather this Hour
+  description: Get a days and an hours weather data in a specific city.  
+  get:
+    displayName: Get weather data
+    description: Get weather data of the cities sent as a body in the request
+    securedBy:
+      - basicAuth
+    queryParameters:
+      cities: 
+        type: string
+        required: true
+    responses:
+      200:
+        body:
+          application/json:
+            type: weatherThisHour[]
+      400:
+        body:
+          application/json:
+            properties:
+              message: string
+            example:
+              {
+                  "message": "No data found"
+              }     
+  
+  post:
+    displayName: Get ID
+    description: This endpoint is used for setting your favourite city or cities and getting an ID back that you use as a URI parameter in the /{user_id} endpoint
+    securedBy:
+      - basicAuth
+    body:
+      application/json:
+        properties:
+          favourite_cities: string
+        example:
+          {
+            "favourite_cities": "kaunas,vilnius" 
+          }
+    responses:
+      200:
+       body:
+         application/json:
+           properties:
+             user_id: string 
+           example:
+             {
+                "user_id": "45"
+             }
+      400:
+        body:
+          application/json:
+            properties:
+              message: string
+            example:
+              {
+                  "message": "Could not insert cities" 
+              } 
+  
+        
+  /{user_id}:
+    displayName: Use ID
+    uriParameters:
+      user_id:
+        type: string
+        required: true
+    get:
+      displayName: Use ID
+      description: Use the ID you got by sending a post request with the cities to get the relevant weather data
+      securedBy:
+      - basicAuth
+      responses:
+        200:
+          body:
+            application/json:
+              type: weatherThisHour[]
+        400:
+          body:
+            application/json:
+              properties:
+                message: string
+              example:
+                {
+                    "message": "No data found"
+                }
+         
+
+      

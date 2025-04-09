@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd">
+    <apikit:config name="proc_layer-config" api="proc_layer.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="dd101aa7-69d9-4210-85bb-5c27d4c522cf">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="85fda0e3-4b11-472f-9ed1-84c1ef4f36b5">
+        <http:request-connection host="api.weatherapi.com" protocol="HTTPS" />
+    </http:request-config>
+    <http:request-config name="INSERT_CITIES_ENDPOINT" doc:name="HTTP Request configuration" doc:id="5e7f68ec-7c24-43a9-ab5a-deea8182e1a2">
+        <http:request-connection host="localhost" port="8082" >
+			<http:authentication >
+				<http:basic-authentication username="user" password="user"/>
+			</http:authentication>
+		</http:request-connection>
+    </http:request-config>
+    <db:config name="Database_Config" doc:name="Database Config" doc:id="56efe7a5-4e40-4497-a1e2-16e99b0192e7">
+        <db:generic-connection url="jdbc:postgresql://localhost:5432/Users" driverClassName="org.postgresql.Driver" user="postgres" password="Veigar123" />
+    </db:config>
+    <api-gateway:autodiscovery apiId="20159857" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="460cc1ba-9a4b-4574-9b00-77a06dbe54a2" flowRef="proc_layer-main" />
+	<flow name="proc_layer-main">
+        <http:listener config-ref="HTTP_Listener_config" path="/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="proc_layer-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "URI parameter not provided"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="proc_layer-console">
+        <http:listener config-ref="HTTP_Listener_config" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="proc_layer-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\cityWeather:proc_layer-config">
+        <set-variable value="#[output application/json&#10;import * from dw::core::Strings&#10;---&#10;trim(capitalize(attributes.queryParams.cities))]" doc:name="Query Parameter cities" doc:id="cbd8293a-9aac-496f-a7d1-8cee675d8170" variableName="cities" />
+        <parallel-foreach doc:name="Parallel For Each" doc:id="3abb61a4-c223-41bf-b85f-c3df23fbad81" collection="#[flatten([vars.cities]  map ($ splitBy &quot;,&quot;))]">
+            <http:request method="GET" doc:name="Request" doc:id="8dcbf20b-525c-472a-82fd-41e8fde25814" config-ref="HTTP_Request_configuration" path="/v1/forecast.json">
+                <http:headers ><![CDATA[#[output application/java
+---
+{
+	"Key" : "Value"
+}]]]></http:headers>
+				<http:query-params><![CDATA[#[output application/java
+---
+{
+	"q" : payload,
+	"key" : "35dcd197664d416fa28161331242111",
+	"days" : "1"
+}]]]></http:query-params>
+            </http:request>
+            <ee:transform doc:name="Transform Message" doc:id="20b703e9-1a71-4afd-83e1-4df7d16ae5ab">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var prevHour = (now() - |PT1H|) as String {format: "yyyy-MM-dd HH:00"} as String
+var nextHour = (now() + |PT1H|) as String {format: "yyyy-MM-dd HH:00"} as String
+var currentTime = now() as String {format: "uuuu-MM-dd HH:00"} as String
+---
+{
+	"Location": {
+		"Name": payload.location.name,
+		"Region": payload.location.region
+	},
+	
+	"Weather this moment": payload.forecast.forecastday[0].hour filter (
+	$.time == currentTime or
+	$.time == prevHour or
+	$.time == nextHour
+	) map (hour) -> {
+		"Time": hour.time,
+        "Temperature(C)": hour.temp_c,
+        "Condition": hour.condition.text,
+        "Wind speed(kph)": hour.wind_kph,
+        "Snow amount(cm)": hour.snow_cm,
+        "Humidity(%)": hour.humidity,
+        "Feels like(C)": hour.feelslike_c,
+        "Chance of rain(%)": hour.chance_of_rain,
+        "Chance of snow(%)": hour.chance_of_snow
+	}
+}]]></ee:set-payload>
+                </ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="variable1" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-variable>
+					<ee:set-variable variableName="variable2" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-variable>
+				</ee:variables>
+            </ee:transform>
+        </parallel-foreach>
+        <ee:transform doc:name="Transform Message" doc:id="5cf6ccc2-6253-4ef4-93f4-647c4d702795">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload.payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <error-handler>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="2de8fa2c-fcb8-4a00-a06f-3ce2897dcc12" type="ANY">
+                <ee:transform doc:name="Transform Message" doc:id="5b8bd8cb-f306-4dda-9827-9b944265a605">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "This city does not exsist"
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="post:\cityWeather:application\json:proc_layer-config">
+        <set-variable value="#[%dw 2.0&#xA;import * from dw::core::Strings&#xA;output application/json&#xA;---&#xA;capitalize(payload.favourite_cities)]" doc:name="Cities" doc:id="8a9ce646-65a3-45c1-af21-294f1862064f" variableName="cities" />
+        <set-variable value="#[output application/json&#xA;var citiesArray = flatten([vars.cities] map ($ splitBy &quot;,&quot;))&#xA;---&#xA;citiesArray]" doc:name="Cities Array" doc:id="c6e4c883-2856-41b8-8081-9c7aa1627def" variableName="citiesArray" />
+        <set-variable value="#[output application/json&#xA;---&#xA;{ &#xA;&quot;favourite_city&quot; : vars.citiesArray&#xA;}]" doc:name="Query Param Map" doc:id="146b3808-4a64-4a93-a2e8-86af3feb6076" variableName="queryParamMap" />
+        <http:request method="POST" doc:name="Request" doc:id="e66549bb-05b7-47c1-bf57-15a5b739f0a3" config-ref="INSERT_CITIES_ENDPOINT" path="/location/create/">
+            <http:body><![CDATA[#[vars.queryParamMap]]]></http:body>
+        </http:request>
+        <db:select doc:name="Select" doc:id="2a6f6c15-bd56-4e44-acbd-b06af60cc017" config-ref="Database_Config">
+            <db:sql><![CDATA[SELECT "user_id"
+FROM "users"
+ORDER BY "user_id" DESC
+LIMIT 1]]></db:sql>
+        </db:select>
+        <ee:transform doc:name="Transform Message" doc:id="96114417-0687-47a9-ba60-bdcb2258778f">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload[0]]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\cityWeather\(user_id):proc_layer-config">
+		<db:select doc:name="Select" doc:id="cb695151-e5f3-43aa-a74c-9bcb8b875a70" config-ref="Database_Config">
+			<db:sql><![CDATA[SELECT "favourite_city"
+FROM "users"
+WHERE "user_id" = :user_id]]></db:sql>
+			<db:input-parameters><![CDATA[#[user_id : attributes.uriParams.user_id]]]></db:input-parameters>
+		</db:select>
+		<set-variable value="#[payload.favourite_city]" doc:name="Cities" doc:id="6f5ec47c-d64a-4edd-99d4-d7e6a6a1e675" variableName="cities" />
+		<parallel-foreach doc:name="Parallel For Each" doc:id="fd0634c9-df9c-4db7-afe7-23a8ad2948c6" collection='#[flatten(vars.cities  map ($ splitBy ","))]'>
+			<http:request method="POST" doc:name="Request" doc:id="4576de64-c903-453d-909d-b32855be731c" config-ref="HTTP_Request_configuration" path="/v1/forecast.json">
+                <http:query-params><![CDATA[#[output application/java
+---
+{
+	"q" : payload,
+	"key" : "35dcd197664d416fa28161331242111",
+	"days" : "1"
+}]]]></http:query-params>
+            </http:request>
+            <ee:transform doc:name="Transform Message" doc:id="d0781f2e-fe2a-4a54-924e-c8e17ef4e94a">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var prevHour = (now() - |PT1H|) as String {format: "yyyy-MM-dd HH:00"} as String
+var nextHour = (now() + |PT1H|) as String {format: "yyyy-MM-dd HH:00"} as String
+var currentTime = now() as String {format: "uuuu-MM-dd HH:00"} as String
+---
+{
+	"Location": {
+		"Name": payload.location.name,
+		"Region": payload.location.region
+	},
+	
+	"Weather this moment": payload.forecast.forecastday[0].hour filter (
+	$.time == currentTime or
+	$.time == prevHour or
+	$.time == nextHour
+	) map (hour) -> {
+		"Time": hour.time,
+        "Temperature(C)": hour.temp_c,
+        "Condition": hour.condition.text,
+        "Wind speed(kph)": hour.wind_kph,
+        "Snow amount(cm)": hour.snow_cm,
+        "Humidity(%)": hour.humidity,
+        "Feels like(C)": hour.feelslike_c,
+        "Chance of rain(%)": hour.chance_of_rain,
+        "Chance of snow(%)": hour.chance_of_snow
+	}
+}]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+        </parallel-foreach>
+        <ee:transform doc:name="Transform Message" doc:id="9af50a56-88e4-4dea-8c08-5e3b9f45ae4e">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload.payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>

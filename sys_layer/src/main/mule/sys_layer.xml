@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+    <apikit:config name="sys_layer-config" api="sys_layer.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <db:config name="Database_Config" doc:name="Database Config" doc:id="3cab27a7-ab44-4f17-bd4d-9591f1fcd4a5">
+        <db:generic-connection url="jdbc:postgresql://localhost:5432/Users" driverClassName="org.postgresql.Driver" user="postgres" password="Veigar123" />
+    </db:config>
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="d6d06148-86d5-46d9-b7ad-f1bcd3413b35">
+        <http:listener-connection host="0.0.0.0" port="8082" />
+    </http:listener-config>
+    <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="45c86824-415a-4f6e-b7d2-25ca5626af67">
+        <http:request-connection protocol="HTTPS" host="www.bilietai.lt" />
+    </http:request-config>
+    <http:request-config name="Requet_to_cities_create_endpoint" doc:name="HTTP Request configuration" doc:id="48215437-b61e-4c4f-b290-d11b104c3f7d">
+        <http:request-connection host="localhost" port="8082" >
+			<http:authentication >
+				<http:basic-authentication username="user" password="user" />
+			</http:authentication>
+		</http:request-connection>
+    </http:request-config>
+    
+	<api-gateway:autodiscovery apiId="20158575" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="d57c064f-cfdc-4829-b944-8667b4556faf" flowRef="sys_layer-main" />
+	<flow name="sys_layer-main">
+        <http:listener path="/*" config-ref="HTTP_Listener_config">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="sys_layer-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="sys_layer-console">
+        <http:listener path="/console/*" config-ref="HTTP_Listener_config">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="sys_layer-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="post:\location\create\:application\json:sys_layer-config">
+        <logger level="INFO" doc:name="Logger" doc:id="18d3352c-499a-4fb5-973a-f371a75bb085" message="#[payload]" />
+        <logger level="INFO" doc:name="Logger" doc:id="6e60c444-d1c3-4404-9c84-e1db19b95ec7" message="#[payload.favourite_city]" />
+        <set-variable value="#[payload.favourite_city]" doc:name="Set Variable" doc:id="1a00109a-8986-4a52-b9ff-4e7f009f6370" variableName="arrayCity" />
+        <db:insert doc:name="Insert" doc:id="46e3505f-bb1f-4df2-9395-4dd385300d0e" config-ref="Database_Config">
+            <db:sql><![CDATA[INSERT INTO "users"
+("favourite_city")
+VALUES 
+(:favourite_city);]]></db:sql>
+            <db:input-parameters><![CDATA[#[{favourite_city : vars.arrayCity joinBy ', '}]]]></db:input-parameters>
+        </db:insert>
+        <ee:transform doc:name="Transform Message" doc:id="74544087-d068-4cf4-a9c1-054fe6128bb0">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "message": "City inserted sucessfully!",
+  "favourite_city": vars.arrayCity
+}
+]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\prefrenceList\(userId):sys_layer-config">
+        <set-variable value="#[attributes.uriParams.userId]" doc:name="URI param" doc:id="89453514-643d-4e8d-9ce8-434e3839f51f" variableName="userId" />
+        <db:select doc:name="Select" doc:id="0f912bde-2c97-43e9-b1fe-2f1474c4e05f" config-ref="Database_Config">
+            <db:sql><![CDATA[SELECT "user_id", "favourite_city"::text AS favourite_city
+FROM "users"
+WHERE "user_id" = :userId]]></db:sql>
+            <db:parameter-types />
+            <db:input-parameters><![CDATA[#[userId: vars.userId]]]></db:input-parameters>
+        </db:select>
+        <logger level="INFO" doc:name="Logger" doc:id="c823f51f-8ce7-4f7a-bb14-99fb33f24772" message="#[payload]" />
+        <ee:transform doc:name="Transform Message" doc:id="86718d99-f49f-4543-b801-e2daaa1415bb">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\events:sys_layer-config">
+		<set-variable value="#[%dw 2.0&#10;output application/json&#10;var today = now() as String {format: &quot;dd.MM.uuuu&quot;}&#10;var nextWeek = (now() + |P7D|) as String {format: &quot;dd.MM.uuuu&quot;}&#10;---&#10;today ++ ',' ++ nextWeek]" doc:name="Event Date" doc:id="e00f5552-585b-4968-8d74-73e50ef0f1c7" variableName="eventDate"/>
+		<set-variable value="#[%dw 2.0&#10;import * from dw::core::Strings&#10;output application/json&#10;---&#10;capitalize(attributes.queryParams.cities)]" doc:name="Query param Cities" doc:id="5643462a-6658-451e-8ce5-4dc581740357" variableName="cities" />
+		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10; cityToNumberMapping : {&#10;  "Kaunas": 51869,&#10;  "Marijampole": 51870,&#10;  "Gargzdai" : 31977,&#10;  "Juodkrante" : 31975,&#10;  "Jurmala": 34448,&#10;  "Kernave" : 45277,&#10;  "Klaipeda" : 22061,&#10;  "Kretinga" : 22518,&#10;  "Pakruojis" : 23923,&#10;  "Palanga" : 22097,&#10;  "Plunge" : 22103,&#10;  "Riga" : 34445,&#10;  "Sateikiu seniunija" : 47580,&#10;  "Seimenos seniunija" : 52845,&#10;  "Siauliai" : 22059,&#10;  "Taurage" : 22523,&#10;  "Utena" : 22513,&#10;  "Vilnius" : 51871&#10; }&#10;}]' doc:name="Map of cities to their ID's" doc:id="43cad20c-2081-416b-b096-18790fd4e8de" variableName="cityMap" />
+		<parallel-foreach doc:name="Parallel For Each" doc:id="78ceee41-6bb8-464a-8ffa-1e2c13b0f722" collection='#[flatten([vars.cities] map ($ splitBy ","))]'>
+			<ee:transform doc:name="Transform Message" doc:id="8c4244c2-d46b-4ad8-8dde-d8b26ba85391">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var trimmedPayload = trim(payload)
+---
+trim(vars.cityMap.cityToNumberMapping[trimmedPayload])]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+		</parallel-foreach>
+		<set-variable value='#[payload map $.payload joinBy ","]' doc:name="Cities id string" doc:id="9c5a4a2f-7122-47fc-ae00-c138305fcc4b" variableName="citiesString" />
+		<http:request method="DELETE" doc:name="Request" doc:id="220558cf-d7eb-4550-b12f-b187a132f031" config-ref="HTTP_Request_configuration" path="/lit/renginiai/visi/status:insales/date:05.12.2024,05.12.2024/order:date,asc" targetValue='#[{ "test": payload}]'>
+			<http:query-params><![CDATA[#[output application/java
+---
+{
+	"country" : "14",
+	"city" : vars.citiesString,
+	"date": vars.eventDate
+}]]]></http:query-params>
+		</http:request>
+		<ee:transform doc:name="HTML to JSON" doc:id="b93f9620-6380-4fe0-b254-f12a592a1821">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+import * from dw::core::Arrays
+var cleanedHtml = trim(substringAfter(payload remove "\n" remove "\t" remove "  " replace /^.*<body/ with "", ">") remove "</body>" remove "</html>" ) 
+replace '"' with "'" replace /(?<="name":).*''/ with $$[1] replace "''" with ""
+var nuoPirmoSkripto = drop(cleanedHtml splitBy "<script type='application/ld+json'>", 1)
+var paskutinioSkriptoZodis = (nuoPirmoSkripto[sizeOf(nuoPirmoSkripto)-1] splitBy "</script>")[0]
+var flattenedPayload = flatten([] << slice(nuoPirmoSkripto, 0, sizeOf(nuoPirmoSkripto) - 1) << paskutinioSkriptoZodis)
+var mapas = drop(flattenedPayload map [
+    ($ splitBy "</script>")[0]
+], 1)
+
+---
+mapas map {
+    test: read($[0] replace "'" with '"' replace /:(?=\s*,),/ with ':"",', "application/json")
+}.test map (field) -> {
+    "Type": field."@type",
+    "Name" : field."name",
+    "Currency": field.offers.priceCurrency,
+    "Availability": field.offers.availability,
+    "Price" : field.offers.price,
+    "Performer": field.performer,
+    "ValidFrom" : field.offers.validFrom,
+    "StartDate" : field.startDate,
+    "EndDate" : field.endDate,
+    "Location": {
+        "Name" : field.location.name,
+        "Address" : field.location.address.streetAddress,
+        "City" : field.location.address.addressLocality,
+        "Country" : field.location.address.addressCountry.name,
+        "Url" : field.location.url
+
+    }
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5f01825d-e472-4605-aa22-216eb5b6dfeb" type="EXPRESSION" >
+				<ee:transform doc:name="Transform Message" doc:id="a9cdc8c1-fcbf-4a7d-be2b-f02c18ca613f" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "This city does not exsist"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+    </flow>
+	<flow name="get:\events\(user_id):sys_layer-config">
+        <set-variable value="#[%dw 2.0&#10;output application/json&#10;var today = now() as String {format: &quot;dd.MM.uuuu&quot;}&#10;var nextWeek = (now() + |P7D|) as String {format: &quot;dd.MM.uuuu&quot;}&#10;---&#10;today ++ ',' ++ nextWeek]" doc:name="Event Date" doc:id="2f62080d-9fa9-4b3c-b8cc-df5f2ea321bb" variableName="eventDate" />
+		<db:select doc:name="Select" doc:id="d29aa078-1289-4b14-aea3-3398d588bf2a" config-ref="Database_Config">
+            <db:sql><![CDATA[SELECT "favourite_city"
+FROM "users"
+WHERE "user_id" = :user_id]]></db:sql>
+            <db:input-parameters><![CDATA[#[user_id : attributes.uriParams.user_id]]]></db:input-parameters>
+        </db:select>
+        <set-variable value="#[payload.favourite_city]" doc:name="Cities" doc:id="87539322-41e7-4c55-a175-c222819fd50c" variableName="cities" />
+        <set-variable value="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;{&#xA; cityToNumberMapping : {&#xA;  &quot;Kaunas&quot;: 51869,&#xA;  &quot;Marijampole&quot;: 51870,&#xA;  &quot;Gargzdai&quot; : 31977,&#xA;  &quot;Juodkrante&quot; : 31975,&#xA;  &quot;Jurmala&quot;: 34448,&#xA;  &quot;Kernave&quot; : 45277,&#xA;  &quot;Klaipeda&quot; : 22061,&#xA;  &quot;Kretinga&quot; : 22518,&#xA;  &quot;Pakruojis&quot; : 23923,&#xA;  &quot;Palanga&quot; : 22097,&#xA;  &quot;Plunge&quot; : 22103,&#xA;  &quot;Riga&quot; : 34445,&#xA;  &quot;Sateikiu seniunija&quot; : 47580,&#xA;  &quot;Seimenos seniunija&quot; : 52845,&#xA;  &quot;Siauliai&quot; : 22059,&#xA;  &quot;Taurage&quot; : 22523,&#xA;  &quot;Utena&quot; : 22513,&#xA;  &quot;Vilnius&quot; : 51871&#xA; }&#xA;}]" doc:name="Map of cities to their ID's" doc:id="43da635d-97df-488e-b04d-968122286515" variableName="cityMap" />
+        <parallel-foreach doc:name="Parallel For Each" doc:id="735f4031-4492-4e23-b0c0-32e18cef18a3" collection="#[flatten(vars.cities map ($ splitBy &quot;,&quot;))]">
+            <ee:transform doc:name="Transform Message" doc:id="8717db11-9692-45e6-9eaa-584bdd537e03">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var trimmedPayload = trim(payload)
+---
+trim(vars.cityMap.cityToNumberMapping[trimmedPayload])]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+        </parallel-foreach>
+        <set-variable value="#[payload map $.payload joinBy &quot;,&quot;]" doc:name="Cities id string" doc:id="877974b9-d6e8-432f-88bb-0111b3cbce33" variableName="citiesString" />
+        <http:request method="PUT" doc:name="Request" doc:id="d9235100-bb1e-45eb-a31b-dd51dc8a9628" config-ref="HTTP_Request_configuration" path="/lit/renginiai/visi/status:insales/date:05.12.2024,05.12.2024/order:date,asc" targetValue="#[{ &quot;test&quot;: payload}]">
+            <http:query-params><![CDATA[#[output application/java
+---
+{
+	"country" : "14",
+	"city" : vars.citiesString,
+	"date": vars.eventDate
+}]]]></http:query-params>
+        </http:request>
+        <ee:transform doc:name="HTML to JSON" doc:id="3ae8a48b-01f2-4138-b6e0-c63f33937179">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+import * from dw::core::Arrays
+var cleanedHtml = trim(substringAfter(payload remove "\n" remove "\t" remove "  " replace /^.*<body/ with "", ">") remove "</body>" remove "</html>" ) 
+replace '"' with "'" replace /(?<="name":).*''/ with $$[1] replace "''" with ""
+var nuoPirmoSkripto = drop(cleanedHtml splitBy "<script type='application/ld+json'>", 1)
+var paskutinioSkriptoZodis = (nuoPirmoSkripto[sizeOf(nuoPirmoSkripto)-1] splitBy "</script>")[0]
+var flattenedPayload = flatten([] << slice(nuoPirmoSkripto, 0, sizeOf(nuoPirmoSkripto) - 1) << paskutinioSkriptoZodis)
+var mapas = drop(flattenedPayload map [
+    ($ splitBy "</script>")[0]
+], 1)
+
+---
+mapas map {
+    test: read($[0] replace "'" with '"' replace /:(?=\s*,),/ with ':"",', "application/json")
+}.test map (field) -> {
+    "Type": field."@type",
+    "Name" : field."name",
+    "Currency": field.offers.priceCurrency,
+    "Availability": field.offers.availability,
+    "Price" : field.offers.price,
+    "Performer": field.performer,
+    "ValidFrom" : field.offers.validFrom,
+    "StartDate" : field.startDate,
+    "EndDate" : field.endDate,
+    "Location": {
+        "Name" : field.location.name,
+        "Address" : field.location.address.streetAddress,
+        "City" : field.location.address.addressLocality,
+        "Country" : field.location.address.addressCountry.name,
+        "Url" : field.location.url
+
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+		<error-handler>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6d58944b-6bc9-4480-8d9d-839f47628141" type="EXPRESSION">
+                <ee:transform doc:name="Transform Message" doc:id="030047b4-f5b5-4889-a2d8-5604f7327fd1">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "This city does not exsist"
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="post:\events:application\json:sys_layer-config">
+		<set-variable value="#[%dw 2.0&#xA;import * from dw::core::Strings&#xA;output application/json&#xA;---&#xA;capitalize(payload.favourite_cities)]" doc:name="payload favourite_cities" doc:id="383e2b5c-248f-4536-a930-0c3f3aab4b44" variableName="cities" />
+		<set-variable value="#[output application/json&#xA;var citiesArray = flatten([vars.cities] map ($ splitBy &quot;,&quot;))&#xA;---&#xA;citiesArray]" doc:name="Cities Array" doc:id="b5bbb524-7256-4339-8faa-bdf9bd6c5d62" variableName="citiesArray" />
+		<set-variable value="#[output application/json&#xA;---&#xA;{ &#xA;&quot;favourite_city&quot; : vars.citiesArray&#xA;}]" doc:name="Query Param Map" doc:id="33af0efb-382e-45d4-b608-55ccd43ac3fe" variableName="queryParamMap" />
+		<http:request method="POST" doc:name="Request" doc:id="449104a6-bbae-4bb5-94e7-12709df7d090" config-ref="Requet_to_cities_create_endpoint" path="/location/create/">
+            <http:body><![CDATA[#[vars.queryParamMap]]]></http:body>
+        </http:request>
+		<db:select doc:name="Select" doc:id="1a8b506c-c15b-463b-8ea9-46204b81afaa" config-ref="Database_Config">
+            <db:sql><![CDATA[SELECT "user_id"
+FROM "users"
+ORDER BY "user_id" DESC
+LIMIT 1]]></db:sql>
+        </db:select>
+		<ee:transform doc:name="Transform Message" doc:id="310e2c67-8334-4e41-9a61-b372acea1d35">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload[0]]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
